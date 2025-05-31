@@ -12,7 +12,7 @@ from agent import Agent, Policy
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--n-episodes', default=10000, type=int, help='Number of training episodes')
+    parser.add_argument('--n-episodes', default=40000, type=int, help='Number of training episodes')
     parser.add_argument('--print-every', default=100, type=int, help='Print info every <> episodes')
     parser.add_argument('--device', default='cuda', type=str, help='network device [cpu, cuda]')
 
@@ -39,6 +39,7 @@ def main():
 
 	policy = Policy(observation_space_dim, action_space_dim)
 	agent = Agent(policy, device=args.device)
+	batch_size = 30
 
     #
     # TASK 2 and 3: interleave data collection to policy updates
@@ -57,7 +58,7 @@ def main():
 			state, reward, done, info = env.step(action.detach().cpu().numpy())
 			agent.store_outcome(previous_state, state, action_probabilities, reward, done)
 			train_reward += reward
-		if len(agent.rewards) > 0 and episode%25==0:
+		if len(agent.rewards) > 0 and episode%batch_size==0:
 			agent.update_policy()
 		if (episode+1)%args.print_every == 0:
 			print('Training episode:', episode)
