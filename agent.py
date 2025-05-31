@@ -4,12 +4,6 @@ import torch.nn.functional as F
 from torch.distributions import Normal
 
 
-import numpy as np
-import torch
-import torch.nn.functional as F
-from torch.distributions import Normal
-
-
 def discount_rewards(r, gamma):
     discounted_r = torch.zeros_like(r)
     running_add = 0
@@ -83,7 +77,7 @@ class Policy(torch.nn.Module):
 
 
 class Agent(object):
-    def __init__(self, policy, use_baseline=False, critic=False, device='cuda'):
+    def __init__(self, policy, use_baseline=False, critic=False, device='cpu'):
         self.train_device = device
         self.policy = policy.to(self.train_device)
         self.optimizer = torch.optim.Adam(policy.parameters(), lr=1e-3)
@@ -105,6 +99,7 @@ class Agent(object):
         done = torch.Tensor(self.done).to(self.train_device)
 
         self.states, self.next_states, self.action_log_probs, self.rewards, self.done = [], [], [], [], []
+        torch.cuda.empty_cache()
         
 
         if not self.critic: 
@@ -165,6 +160,7 @@ class Agent(object):
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
+        torch.cuda.empty_cache()
 
         #
 
