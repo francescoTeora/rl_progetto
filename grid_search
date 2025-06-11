@@ -22,18 +22,18 @@ from agent import Agent, Policy
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--env', default='CustomHopper-source-v0', type=str)
-    parser.add_argument('--n-episodes', default=1000, type=int)
-    parser.add_argument('--eval-window', default=100, type=int)
+    parser.add_argument('--n-episodes', default=500, type=int)
+    parser.add_argument('--eval-window', default=50, type=int)
     parser.add_argument('--seeds', nargs='+', default=[0,1,2,3,4], type=int)
     parser.add_argument('--lrs', nargs='+', default=[1e-4, 3e-4, 1e-3], type=float)
     parser.add_argument('--gammas', nargs='+', default=[0.95, 0.99], type=float)
     parser.add_argument('--batch-sizes', nargs='+', default=[5, 10, 30], type=int)
     parser.add_argument('--device', default='cuda', type=str)
-    parser.add_argument('--plot', action='store_true', help='Mostra i grafici dei reward')
+    #parser.add_argument('--plot', action='store_true', help='Mostra i grafici dei reward')
     return parser.parse_args()
 
 
-def train_episode(env, agent, max_steps=1000):
+def train_episode(env, agent, max_steps=500):
     state = env.reset()
     done = False
     total_reward = 0.0
@@ -97,8 +97,7 @@ def run_grid_search(args):
 
                     print(f"lr={lr:.0e}, gamma={gamma}, batch={batch_size}, seed={seed} => avg={avg:.1f}, slope={slope:.2f}, p={pval:.2f}")
 
-                    if args.plot:
-                        plot_rewards_curve(rewards, f"LR={lr}, Gamma={gamma}, Batch={batch_size}, Seed={seed}")
+                    plot_rewards_curve(rewards, f"LR={lr}, Gamma={gamma}, Batch={batch_size}, Seed={seed}")
 
                     results.append({
                         'lr': lr,
