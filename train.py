@@ -36,6 +36,11 @@ def main():
 	"""
 	observation_space_dim = env.observation_space.shape[-1]
 	action_space_dim = env.action_space.shape[-1]
+	"""
+	in questa parte del codice si carica un eventuale checkpoint
+	Possibili modifiche, specificare nomi modello diversi per ogni task che si va a fare e di conseguenza creare piu cartelle checkpoint
+	sempre con nomi diversi in base al modello a cui si riferiscono
+	"""
 	
 	checkpoint_path = 'checkpoints/model_ep18200.mdl'  
 	start_episode = 0
@@ -49,14 +54,17 @@ def main():
 		if match:
 			start_episode = int(match.group(1))
 		else:
-			print("Impossibile determinare l'episodio dal nome del checkpoint.")
+			print("checkpoint non valido")
 	else:
-		print("Nessun checkpoint trovato. Training da zero.")
+		print("Nessun checkpoint trovato, training da 0")
 
     #
     # TASK 2 and 3: interleave data collection to policy updates
     #
+	####[##################]SE VOGLIAMO CARICARE UN CHECKPOINT, DOPO AVER SCELTO DA QUALE MODELLO E CHE NUMERO EPISODIO MODIFICARE START EPISODE######
+	#si potrebbe fare in modo automatico (modifica)
 	
+
 	for episode in range(start_episode, args.n_episodes):
 		done = False
 		train_reward = 0
@@ -75,6 +83,10 @@ def main():
 		if (episode+1)%args.print_every == 0:
 			print('Training episode:', episode)
 			print('Episode return:', train_reward)
+			"""
+			qui si va a salvare il modello ogni x episodi, possibili modifiche farlo con un numero diverso rispetto ai print, e quindi magari
+			ogni 1000 episodi e poi si puo riprendere da lì
+			"""
 			torch.save({
 				'model_state_dict': agent.policy.state_dict(),
 			}, f"checkpoints/model_ep{episode + 1}.mdl")
