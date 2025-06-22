@@ -8,11 +8,11 @@ import gym
 
 from env.custom_hopper import *
 from agent import Agent, Policy
-
-
+import os
+import re
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--n-episodes', default=40000, type=int, help='Number of training episodes')
+    parser.add_argument('--n-episodes', default=30000, type=int, help='Number of training episodes')
     parser.add_argument('--print-every', default=100, type=int, help='Print info every <> episodes')
     parser.add_argument('--device', default='cuda', type=str, help='network device [cpu, cuda]')
 
@@ -36,16 +36,28 @@ def main():
 	"""
 	observation_space_dim = env.observation_space.shape[-1]
 	action_space_dim = env.action_space.shape[-1]
-
+	
+	checkpoint_path = 'checkpoints/model_ep18200.mdl'  
+	start_episode = 0
 	policy = Policy(observation_space_dim, action_space_dim)
 	agent = Agent(policy, device=args.device)
-	batch_size = 30
+	batch_size = 10
+	if os.path.exists(checkpoint_path):
+		print(f"TROVATO CHECKPOINT E RIPRESO TRAINING DA Lì {checkpoint_path}")
+		policy.load_state_dict(torch.load(checkpoint_path)['model_state_dict'], strict=True)
+		match = re.search(r'model_ep(\d+)\.mdl', checkpoint_path)
+		if match:
+			start_episode = int(match.group(1))
+		else:
+			print("Impossibile determinare l'episodio dal nome del checkpoint.")
+	else:
+		print("Nessun checkpoint trovato. Training da zero.")
 
     #
     # TASK 2 and 3: interleave data collection to policy updates
     #
-
-	for episode in range(args.n_episodes):
+	
+	for episode in range(start_episode, args.n_episodes):
 		done = False
 		train_reward = 0
 		state = env.reset()  # Reset the environment and observe the initial state
@@ -63,12 +75,14 @@ def main():
 		if (episode+1)%args.print_every == 0:
 			print('Training episode:', episode)
 			print('Episode return:', train_reward)
+			torch.save({
+				'model_state_dict': agent.policy.state_dict(),
+			}, f"checkpoints/model_ep{episode + 1}.mdl")
+
+
 
 
 	torch.save(agent.policy.state_dict(), "model.mdl")
-
-
 	
-
 if __name__ == '__main__':
 	main()
