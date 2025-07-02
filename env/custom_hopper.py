@@ -15,7 +15,7 @@ class CustomHopper(MujocoEnv, utils.EzPickle):
     def __init__(self, domain=None):
         MujocoEnv.__init__(self, 4)
         utils.EzPickle.__init__(self)
-
+        self.domain= domain
         self.original_masses = np.copy(self.sim.model.body_mass[1:])    # Default link masses
 
         if domain == 'source':  # Source environment has an imprecise torso mass (-30% shift)
@@ -93,6 +93,7 @@ class CustomHopper(MujocoEnv, utils.EzPickle):
 #aggiungere una funzione per resettare il model con udr e tenere questa per resettare il modello per i primi 2 algoritmi
     def reset_model(self):
         """Reset the environment to a random initial state"""
+        
         #self.set_random_parameters() #Applichiamo UDR
         qpos = self.init_qpos + self.np_random.uniform(low=-.005, high=.005, size=self.model.nq)
         qvel = self.init_qvel + self.np_random.uniform(low=-.005, high=.005, size=self.model.nv)
