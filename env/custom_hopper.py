@@ -34,9 +34,9 @@ class CustomHopper(MujocoEnv, utils.EzPickle):
         
         # Original masses: thigh, leg, foot
         # Assume some default ranges (tune them manually later)
-        thigh_mass_range = (0.0, 0.0)
-        leg_mass_range = (0.0, 0.0)
-        foot_mass_range = (0.0, 0.0)
+        thigh_mass_range = (0.5, 1.5)*self.original_masses[2]
+        leg_mass_range = (0.5, 1.5)*self.original_masses[3]
+        foot_mass_range = (0.5, 1.5)*self.original_masses[4]
 
         thigh_mass = np.random.uniform(*thigh_mass_range)
         leg_mass = np.random.uniform(*leg_mass_range)
@@ -56,10 +56,9 @@ class CustomHopper(MujocoEnv, utils.EzPickle):
         return masses
 
 
-    def set_parameters(self, task):
+    def set_parameters(self):
         """Set each hopper link's mass to a new value"""
-        self.sim.model.body_mass[1:] = task
-
+        self.sim.model.body_mass[1:] = self.sample_parameters(self)
 
     def step(self, a):
         """Step the simulation to the next timestep
@@ -72,12 +71,13 @@ class CustomHopper(MujocoEnv, utils.EzPickle):
         posbefore = self.sim.data.qpos[0]
         self.do_simulation(a, self.frame_skip)
         posafter, height, ang = self.sim.data.qpos[0:3]
-        alive_bonus = 1.0
+        alive_bonus = 1
         reward = (posafter - posbefore) / self.dt
         reward += alive_bonus
-        reward -= 1e-3 * np.square(a).sum()
+        reward -= 1e-3* np.square(a).sum()
         s = self.state_vector()
         done = not (np.isfinite(s).all() and (np.abs(s[2:]) < 100).all() and (height > .7) and (abs(ang) < .2))
+        
         ob = self._get_obs()
 
         return ob, reward, done, {}
@@ -90,10 +90,10 @@ class CustomHopper(MujocoEnv, utils.EzPickle):
             self.sim.data.qvel.flat
         ])
 
-
+#aggiungere una funzione per resettare il model con udr e tenere questa per resettare il modello per i primi 2 algoritmi
     def reset_model(self):
         """Reset the environment to a random initial state"""
-        self.set_random_parameters() #Applichiamo UDR
+        #self.set_random_parameters() #Applichiamo UDR
         qpos = self.init_qpos + self.np_random.uniform(low=-.005, high=.005, size=self.model.nq)
         qvel = self.init_qvel + self.np_random.uniform(low=-.005, high=.005, size=self.model.nv)
         self.set_state(qpos, qvel)
@@ -137,7 +137,9 @@ class CustomHopper(MujocoEnv, utils.EzPickle):
 
 """
     Registered environments
+
 """
+#qui sono definiti i vari envs che poi si vanno a usare nel training
 gym.envs.register(
         id="CustomHopper-v0",
         entry_point="%s:CustomHopper" % __name__,

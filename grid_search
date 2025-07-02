@@ -1,10 +1,10 @@
-"""Lightweight Grid Search con metriche robuste per Vanilla REINFORCE su Hopper
+""" Grid Search for REINFORCE
+evaluating in a naive way
 
-Valuta:
-- Reward medio negli ultimi N episodi
-- Monotonicità (trend di crescita) della curva di reward
-- Deviazione standard finale (stabilità)
-- Visualizzazione del trend reward
+- Mean of rewards of the last N episodes
+- Trend of the rewards curve
+- final standard deviation estimation
+- 
 
 """
 import argparse
@@ -22,12 +22,12 @@ from agent import Agent, Policy
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--env', default='CustomHopper-source-v0', type=str)
-    parser.add_argument('--n-episodes', default=500, type=int)
-    parser.add_argument('--eval-window', default=50, type=int)
+    parser.add_argument('--n-episodes', default=10000, type=int)
+    parser.add_argument('--eval-window', default=500, type=int)
     parser.add_argument('--seeds', nargs='+', default=[0,1,2,3,4], type=int)
-    parser.add_argument('--lrs', nargs='+', default=[1e-4, 3e-4, 1e-3], type=float)
-    parser.add_argument('--gammas', nargs='+', default=[0.95, 0.99], type=float)
-    parser.add_argument('--batch-sizes', nargs='+', default=[5, 10, 30], type=int)
+    parser.add_argument('--lrs', nargs='+', default=[1e-4, 1e-3], type=float)
+    parser.add_argument('--gammas', nargs='+', default=[0.995, 0.99], type=float)
+    parser.add_argument('--batch-sizes', nargs='+', default=[20, 30], type=int)
     parser.add_argument('--device', default='cuda', type=str)
     #parser.add_argument('--plot', action='store_true', help='Mostra i grafici dei reward')
     return parser.parse_args()
@@ -97,7 +97,7 @@ def run_grid_search(args):
 
                     print(f"lr={lr:.0e}, gamma={gamma}, batch={batch_size}, seed={seed} => avg={avg:.1f}, slope={slope:.2f}, p={pval:.2f}")
 
-                    plot_rewards_curve(rewards, f"LR={lr}, Gamma={gamma}, Batch={batch_size}, Seed={seed}")
+                    
 
                     results.append({
                         'lr': lr,
@@ -121,13 +121,13 @@ def run_grid_search(args):
     summary.columns = ['lr','gamma','batch_size','avg_reward_mean','avg_reward_std','reward_slope','reward_std']
     summary = summary.sort_values(by='avg_reward_mean', ascending=False)
     summary.to_csv("grid_search_light_results.csv", index=False)
-    print("Top risultati:")
+    print("Best results by mean:")
     print(summary.head(10))
 
 
 def main():
     args = parse_args()
-    print(f"Grid search leggera su {args.env}, episodi={args.n_episodes}, seeds={len(args.seeds)}")
+    print(f"grid search on {args.env}, episodes={args.n_episodes}, seeds={len(args.seeds)}")
     run_grid_search(args)
 
 
