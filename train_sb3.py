@@ -13,7 +13,7 @@ from stable_baselines3.common.evaluation import evaluate_policy
 LOG_DIR = "./models"
 os.makedirs(LOG_DIR, exist_ok=True)
 
-def PPO_agent(env_train, env_test, model_name, learning_rate=3e-4, gamma=0.99, verbose=1, n_step=2048, total_timesteps=1_000_000):
+def PPO_agent(env_train, env_test, model_name, learning_rate=3e-4, gamma=0.99, verbose=1, n_step=2048, total_timesteps=100_000):
     env_id_train = env_train.spec.id
     env_id_test = env_test.spec.id
     print(f"\nTraining on {env_id_train}, testing on {env_id_test}")
@@ -27,6 +27,7 @@ def PPO_agent(env_train, env_test, model_name, learning_rate=3e-4, gamma=0.99, v
         gamma=gamma,
         n_steps=n_step,
         ent_coef=0.01,
+        normalize_advantage=True,
         tensorboard_log="./ppo_tensorboard/"
     )
 
@@ -36,8 +37,8 @@ def PPO_agent(env_train, env_test, model_name, learning_rate=3e-4, gamma=0.99, v
 
     # Evaluate
     mean_reward, std_reward = evaluate_policy(
-        model, env_test, n_eval_episodes=50, deterministic=True
-    )
+        model, env_test, n_eval_episodes=50, deterministic=True, render= True)
+    
     print(f"Evaluation on {env_id_test}: Mean reward = {mean_reward:.2f} +/- {std_reward:.2f}")
     return mean_reward, std_reward
 

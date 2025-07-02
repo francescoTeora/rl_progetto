@@ -12,7 +12,7 @@ import os
 import re
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--n-episodes', default=30000, type=int, help='Number of training episodes')
+    parser.add_argument('--n-episodes', default=20000, type=int, help='Number of training episodes')
     parser.add_argument('--print-every', default=100, type=int, help='Print info every <> episodes')
     parser.add_argument('--device', default='cuda', type=str, help='network device [cpu, cuda]')
 
@@ -42,7 +42,7 @@ def main():
 	sempre con nomi diversi in base al modello a cui si riferiscono
 	"""
 	
-	checkpoint_path = 'checkpoints/model_ep18200.mdl'  
+	checkpoint_path = 'checkpoints/model_ep20200.mdl'  
 	start_episode = 0
 	policy = Policy(observation_space_dim, action_space_dim)
 	agent = Agent(policy, device=args.device)
