@@ -8,9 +8,16 @@ import pandas as pd
 from env.custom_hopper import *
 def objective(trial):
    #in base ai parametri da ottimizzare si usa suggest_float\int o categorical (per una lista fissata dall'inizio)
-    learning_rate = trial.suggest_float('learning_rate', 1e-5, 1e-3, log=True)
-    gamma = trial.suggest_float('gamma', 0.95, 0.9999)
-    ent_coef = trial.suggest_float('ent_coef', 1e-6, 1e-2, log=True)
+    # IPERPARAMETRI PRINCIPALI (range ristretti basati su letteratura) ->Bayesian Optimization with Informed Priors" per report
+    #"domain knowledge"  "expert knowledge" "warm start"
+    learning_rate = trial.suggest_float('learning_rate', 1e-4, 8e-4, log=True)
+    gamma = trial.suggest_float('gamma', 0.99, 0.9999)
+    ent_coef = trial.suggest_float('ent_coef', 1e-4, 1e-2, log=True)
+    batch_size = trial.suggest_categorical('batch_size', [32, 64, 128, 256])
+    n_steps = trial.suggest_categorical('n_steps', [1024, 2048, 4096])
+    n_epochs = trial.suggest_int('n_epochs', 5, 20)
+    clip_range = trial.suggest_float('clip_range', 0.15, 0.3)
+    gae_lambda = trial.suggest_float('gae_lambda', 0.9, 0.99)
     source_env = gym.make('CustomHopper-source-v0')
     #qui si crea un modello identico al training che viene addestrato con combinazioni diverse di parametri ogni volta
     #quindi si usa normalize advantage e TUTTI I PARAMETRI DEL TRAIN (con quelli non da ottimizzare fissi, per avere risultati comparabili 
@@ -18,14 +25,21 @@ def objective(trial):
     model = PPO(
         "MlpPolicy",
         source_env,
+        # Iperparametri di apprendimento
         learning_rate=learning_rate,
         gamma=gamma,
-        #n_steps=n_step da aggiungere numero di step come iperparametro da ottimizzare eventualmente
         ent_coef=ent_coef,
+        # Parametri di raccolta dati
+        n_steps=n_steps,
+        batch_size=batch_size,
+        n_epochs=n_epochs,
+        # Parametri specifici di PPO
+        clip_range=clip_range,
+        gae_lambda=gae_lambda,
         normalize_advantage=True, #fisso
         #tensorboard_log="./ppo_tensorboard/" eventualmente da integrare
     )
-    model.learn(total_timesteps=20000)
+    model.learn(total_timesteps=100000)
     
     #valutazione degli iperparametri di questa objective
     # fatta direttamente source ->target perche caso piu complicato e che si userà anche dopo per UDR CDR
@@ -56,7 +70,7 @@ def run_optimization():
     )
     print("Inizio ottimizzazione...")
     study.optimize(objective, 
-        n_trials =2, #eventualmente di piu se è veloce 
+        n_trials =2, #di prova, essendo veloce si possono fare almeno 10 trial (prove con random seed diversi del processo di ottimizzazione)
         show_progress_bar=True ) 
     
     # ANALISI DEI RISULTATI

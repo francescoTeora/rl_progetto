@@ -6,33 +6,62 @@
 """
 import os
 import gym
+import pandas as pd
 from env.custom_hopper import *
 from stable_baselines3 import PPO
 from stable_baselines3.common.evaluation import evaluate_policy
 
 LOG_DIR = "./models"
 os.makedirs(LOG_DIR, exist_ok=True)
+def load_best_hyperparameters(csv_path='optimization_results.csv'):
+    try:
+        df = pd.read_csv(csv_path)
+        print(f"Trovati {len(df)} trial nell'ottimizzazione")
+    except Exception as e:
+        raise ValueError(f"Errore nel caricamento del file CSV: {e}")
+    completed_trials = df[df['state'] == 'COMPLETE'].copy()
+    best_trial_idx = completed_trials['value'].idxmax()
+    best_trial = completed_trials.loc[best_trial_idx]
+    best_params = {}
+    param_columns = [col for col in df.columns if col.startswith('params_')]
+    for col in param_columns:
+        # Rimuovi il prefisso 'params_' per ottenere il nome pulito del parametro
+        param_name = col.replace('params_', '')
+        param_value = best_trial[col]
+        best_params[param_name] = param_value
+    return best_params
+    
+    
+def PPO_agent(env_train, env_test, model_name, optimization_results_path='optimization_results.csv'):
+   
+   #optimization_results_path to use the best hyperparameters found
 
-def PPO_agent(env_train, env_test, model_name, learning_rate=3e-4, gamma=0.99, verbose=1, n_step=2048, total_timesteps=100_000):
     env_id_train = env_train.spec.id
     env_id_test = env_test.spec.id
     print(f"\nTraining on {env_id_train}, testing on {env_id_test}")
-
+    best_params = load_best_hyperparameters(optimization_results_path)
+                
+    # Crea il modello con gli iperparametri ottimizzati
     # Create model
     model = PPO(
-        "MlpPolicy",
-        env_train,
-        verbose=verbose,
-        learning_rate=learning_rate,
-        gamma=gamma,
-        n_steps=n_step,
-        ent_coef=0.01,
-        normalize_advantage=True,
-        tensorboard_log="./ppo_tensorboard/"
-    )
+            policy="MlpPolicy",  # Policy network architecture
+            env=env_train,       # Training environment
+            learning_rate=best_params.get('learning_rate', 3e-4),
+            n_steps=int(best_params.get('n_steps', 2048)),
+            batch_size=int(best_params.get('batch_size', 64)),
+            n_epochs=int(best_params.get('n_epochs', 10)),
+            gamma=best_params.get('gamma', 0.99),
+            gae_lambda=best_params.get('gae_lambda', 0.95),
+            clip_range=best_params.get('clip_range', 0.2),
+            ent_coef=best_params.get('ent_coef', 0.0),
+            normalize_advantage=True,
+            tensorboard_log=f"./ppo_{model_name}_tensorboard/",
+            verbose=1
+        )
+
 
     # Train
-    model.learn(total_timesteps=total_timesteps)
+    model.learn(total_timesteps=100000)
     model.save(os.path.join(LOG_DIR, model_name))
 
     # Evaluate
