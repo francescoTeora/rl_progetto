@@ -2,7 +2,7 @@
 #ottimizzazione parametri con optuna
 import optuna
 import gym
-from stable_baselines3 import PPO, SAC
+from stable_baselines3 import PPO
 from stable_baselines3.common.evaluation import evaluate_policy
 import pandas as pd
 from env.custom_hopper import *
@@ -25,7 +25,7 @@ def objective(trial):
         normalize_advantage=True, #fisso
         #tensorboard_log="./ppo_tensorboard/" eventualmente da integrare
     )
-    model.learn(total_timesteps=100000)
+    model.learn(total_timesteps=20000)
     
     #valutazione degli iperparametri di questa objective
     # fatta direttamente source ->target perche caso piu complicato e che si userà anche dopo per UDR CDR
@@ -38,10 +38,11 @@ def objective(trial):
     source_env.close()
     target_env.close()
     del model  #eliminiamo il modello perche non ci interessa interessano solo i risultati sugli iperparametri
-    return mean_reward, std_reward
+    return mean_reward
 
 def run_optimization():
     # CREAZIONE DELLO STUDY (il gestore dei vari esperimenti )
+    #volendo lo study si puo salvare in memoria in sql
     study = optuna.create_study(
         direction='maximize',
         
