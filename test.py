@@ -9,9 +9,9 @@ from agent import Agent, Policy
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model', default="model.mdl", type=str, help='Model path')
+    parser.add_argument('--model', default="/root/projectMl/rl_mldl_25/models/reinforce_baseline_model.mdl", type=str, help='Model path')
     parser.add_argument('--device', default='cuda', type=str, help='network device [cpu, cuda]')
-    parser.add_argument('--render', default=True, action='store_true', help='Render the simulator')
+    parser.add_argument('--render', default=False, action='store_true', help='Render the simulator')
     parser.add_argument('--episodes', default=100, type=int, help='Number of test episodes')
 
     return parser.parse_args()
@@ -35,7 +35,7 @@ def main():
 	policy.load_state_dict(torch.load(args.model), strict=True)
 
 	agent = Agent(policy, device=args.device)
-
+	episode_rewards = np.zeros(args.episodes)
 	for episode in range(args.episodes):
 		done = False
 		test_reward = 0
@@ -51,9 +51,12 @@ def main():
 				env.render()
 
 			test_reward += reward
-
+		episode_rewards[episode]= test_reward
 		print(f"Episode: {episode} | Return: {test_reward}")
-	
+	mean_reward = np.mean(episode_rewards)
+	std_reward = np.std(episode_rewards)
+	print(f"{args.model}--------------------->{mean_reward}±{std_reward}")
+		
 
 if __name__ == '__main__':
 	main()
