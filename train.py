@@ -12,8 +12,8 @@ import os
 import re
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--n-episodes', default=20000, type=int, help='Number of training episodes')
-    parser.add_argument('--print-every', default=100, type=int, help='Print info every <> episodes')
+    parser.add_argument('--n-episodes', default=100000, type=int, help='Number of training episodes')
+    parser.add_argument('--print-every', default=1000, type=int, help='Print info every <> episodes')
     parser.add_argument('--device', default='cuda', type=str, help='network device [cpu, cuda]')
 
     return parser.parse_args()
@@ -24,7 +24,7 @@ args = parse_args()
 def main():
 
 	env = gym.make('CustomHopper-source-v0')
-	# env = gym.make('CustomHopper-target-v0')
+	env = gym.make('CustomHopper-target-v0')
 
 	print('Action space:', env.action_space)
 	print('State space:', env.observation_space)
@@ -42,11 +42,11 @@ def main():
 	sempre con nomi diversi in base al modello a cui si riferiscono
 	"""
 	
-	checkpoint_path = 'checkpoints/model_ep20200.mdl'  
+	checkpoint_path = 'checkpoints/model_ep50000.mdl'  
 	start_episode = 0
 	policy = Policy(observation_space_dim, action_space_dim)
 	agent = Agent(policy, device=args.device)
-	batch_size = 10
+	batch_size = 30
 	if os.path.exists(checkpoint_path):
 		print(f"TROVATO CHECKPOINT E RIPRESO TRAINING DA Lì {checkpoint_path}")
 		policy.load_state_dict(torch.load(checkpoint_path)['model_state_dict'], strict=True)
