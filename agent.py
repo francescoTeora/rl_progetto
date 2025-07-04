@@ -18,7 +18,7 @@ class Policy(torch.nn.Module):
         super().__init__()
         self.state_space = state_space
         self.action_space = action_space
-        self.hidden = 30
+        self.hidden =64
         self.tanh = torch.nn.Tanh()
 
         """
@@ -77,7 +77,7 @@ class Policy(torch.nn.Module):
 
 
 class Agent(object):
-    def __init__(self, policy, use_baseline=False, critic=False, device='cpu'):
+    def __init__(self, policy, use_baseline=False, critic=True, device='cuda'):
         self.train_device = device
         self.policy = policy.to(self.train_device)
         self.optimizer = torch.optim.Adam(policy.parameters(), lr=1e-3)
@@ -114,6 +114,7 @@ class Agent(object):
             else:
                 advantages = returns
             advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
+            #si vanno a standardizzare i vantaggi in ogni caso
         #   - compute policy gradient loss function given actions and returns
             policy_loss = -action_log_probs * advantages
             loss = policy_loss.sum()
@@ -132,17 +133,13 @@ class Agent(object):
             _, state_values = self.policy.forward(states)
             state_values = state_values.squeeze(-1)
 
-            returns = []
-            G = 0
-            for i in reversed(range(len(self.rewards))):        
-                if self.done[i]:
-                    G = 0 #finito l'episodio il valore finale è 0
-                next_state = self.next_states[i]
-                _, next_value = self.policy(next_state)
-                #next_value = next_value.item()
-                G = rewards[i] + self.gamma * next_value 
-                returns.insert(0, G.detach())
-            returns = torch.tensor(returns, dtype=torch.float32).to(self.train_device)
+            returns = torch.zeros_like(rewards)
+            for i in range(len(rewards)):
+                if done[i]:
+                    returns[i] = rewards[i]
+                else:
+                    _, next_value = self.policy(next_states[i])
+                    returns[i] = rewards[i] + self.gamma * next_value.detach()
 
         #   - compute advantage terms
 
