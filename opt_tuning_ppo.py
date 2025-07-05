@@ -51,8 +51,12 @@ def objective(trial):
 
     source_env.close()
     target_env.close()
-    del model  #eliminiamo il modello perche non ci interessa interessano solo i risultati sugli iperparametri
-    return mean_reward
+    del model
+    #metrica per tenere conto del fatto che la varianza possa incidere e il mean reward da solo non è sufficiente ma
+    #moltiplicata per un fattore per tenere conto del fatto che se penalizziamo troppo la std sul training c'è bias
+    return (mean_reward-0.1*std_reward)
+    #eliminiamo il modello perche non ci interessa interessano solo i risultati sugli iperparametri
+    
 
 def run_optimization():
     # CREAZIONE DELLO STUDY (il gestore dei vari esperimenti )
@@ -64,13 +68,13 @@ def run_optimization():
         # TPESampler è il default e più versatile (sembra un random tree bayesiano, va a campionare prossime combinazioni su cui fare esperimenti
         #prendendo quelli che hanno dato risultati migliori con probabilità piu alta(a meno di pruning che conviene 
         #implementare per ragioni computazionali
-        sampler=optuna.samplers.TPESampler(seed=1648),
+        sampler=optuna.samplers.TPESampler(seed=2025),
 
         pruner=None, #se non si specifica viene usato un pruner basato sulla mediana
     )
     print("Inizio ottimizzazione...")
     study.optimize(objective, 
-        n_trials =2, #di prova, essendo veloce si possono fare almeno 10 trial (prove con random seed diversi del processo di ottimizzazione)
+        n_trials =10, #di prova, essendo veloce si possono fare almeno 10 trial (prove con random seed diversi del processo di ottimizzazione)
         show_progress_bar=True ) 
     
     # ANALISI DEI RISULTATI

@@ -32,7 +32,8 @@ def load_best_hyperparameters(csv_path='optimization_results.csv'):
     return best_params
     
     
-def PPO_agent(env_train, env_test, model_name, optimization_results_path='optimization_results.csv'):
+def PPO_agent( model_name ,env_train, 
+              env_test, optimization_results_path='optimization_results.csv'):
    
    #optimization_results_path to use the best hyperparameters found
 
@@ -55,13 +56,11 @@ def PPO_agent(env_train, env_test, model_name, optimization_results_path='optimi
             clip_range=best_params.get('clip_range', 0.2),
             ent_coef=best_params.get('ent_coef', 0.0),
             normalize_advantage=True,
-            tensorboard_log=f"./ppo_{model_name}_tensorboard/",
+            tensorboard_log=f"./{model_name}_tensorboard/",
             verbose=1
         )
-
-
     # Train
-    model.learn(total_timesteps=100000)
+    model.learn(total_timesteps=100_000)
     model.save(os.path.join(LOG_DIR, model_name))
 
     # Evaluate
@@ -73,28 +72,39 @@ def PPO_agent(env_train, env_test, model_name, optimization_results_path='optimi
 
 
 def main():
-    train_env = gym.make('CustomHopper-source-v0')
-    test_env = gym.make('CustomHopper-source-v0')
+    source_env = gym.make('CustomHopper-source-v0')
     target_env = gym.make('CustomHopper-target-v0')
 
-    print('State space:', train_env.observation_space)
-    print('Action space:', train_env.action_space)
-    print('Dynamics parameters:', train_env.get_parameters())
+    print('State space:', source_env.observation_space)
+    print('Action space:', source_env.action_space)
+    print('Dynamics parameters:', source_env.get_parameters())
 
-    # source -> source
-    m1, s1 = PPO_agent(train_env, test_env, "ppo_source")
-
-    # source -> target
-    model = PPO.load(os.path.join(LOG_DIR, "ppo_source"))
-    m2, s2 = evaluate_policy(model, target_env, n_eval_episodes=50, deterministic=True)
-
-    # target -> target
-    m3, s3 = PPO_agent(target_env, target_env, "ppo_target")
-
-    print("\n--- Summary ---")
-    print(f"source -> source: {m1:.2f} ± {s1:.2f}")
-    print(f"source -> target: {m2:.2f} ± {s2:.2f} (lower bound)")
-    print(f"target -> target: {m3:.2f} ± {s3:.2f} (upper bound)")
+    # TRAIN Agent 1: source domain
+    print("\n=== Training Agent on SOURCE domain ===")
+    PPO_agent("ppo_source",source_env, source_env, optimization_results_path='optimization_results.csv')
+    # TEST Agent 1: source -> source
+    print("\n=== Testing SOURCE-trained agent on SOURCE domain ===")
+    source_model = PPO.load(os.path.join(LOG_DIR, "ppo_source"))
+    m1, s1 = evaluate_policy(source_model, target_env, n_eval_episodes=50, deterministic=True)
+    
+    # TEST Agent 1: source -> target (lower bound)
+    print("\n=== Testing SOURCE-trained agent on TARGET domain ===")
+    m2, s2 = evaluate_policy(source_model, target_env, n_eval_episodes=50, deterministic=True)
+    
+    # TRAIN Agent 2: target domain  
+    print("\n=== Training Agent on TARGET domain ===")
+    PPO_agent("ppo_target", target_env, target_env, optimization_results_path='optimization_results.csv')
+     # TEST Agent 2: target -> target (upper bound)
+    print("\n=== Testing TARGET-trained agent on TARGET domain ===")
+    target_model = PPO.load(os.path.join(LOG_DIR, "ppo_target"))
+    m3, s3 = evaluate_policy(target_model, target_env, n_eval_episodes=50, deterministic=True)
+    print("\n" + "="*50)
+    print("FINAL RESULTS SUMMARY")
+    print("="*50)
+    print(f"source → source: {m1:.2f} ± {s1:.2f}")
+    print(f"source → target: {m2:.2f} ± {s2:.2f} (LOWER BOUND)")
+    print(f"target → target: {m3:.2f} ± {s3:.2f} (UPPER BOUND)")
+    print("="*50)
 
 if __name__ == '__main__':
     main()
