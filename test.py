@@ -24,7 +24,7 @@ def main():
     # Define the two models to compare
     models = {
         'REINFORCE': '/root/projectMl/rl_mldl_25/models/reinforce_model.mdl',
-        'REINFORCE Baseline': '/root/projectMl/rl_mldl_25/models/reinforce_baseline_model.mdl'
+        'ACTOR CRITIC': '/root/projectMl/rl_mldl_25/models/actor_critic.mdl'
     }
     
     results = {}
