@@ -23,35 +23,6 @@ torch.cuda.manual_seed(seed)
 LOG_DIR = "./models"
 os.makedirs(LOG_DIR, exist_ok=True)
 
-class LearningRateDecayCallback(BaseCallback):
-    """
-    Custom callback for learning rate decay.
-    Reduces learning rate by factor of 0.5 every 200k steps.
-    """
-    def __init__(self, decay_factor=0.5, decay_interval=200000, verbose=0):
-        super().__init__(verbose)
-        self.decay_factor = decay_factor
-        self.decay_interval = decay_interval
-        self.initial_lr = None
-        
-    def _on_training_start(self) -> None:
-        # Store the initial learning rate
-        self.initial_lr = self.model.learning_rate
-        if self.verbose > 0:
-            print(f"Initial learning rate: {self.initial_lr}")
-    
-    def _on_step(self) -> bool:
-        # Check if we should decay the learning rate
-        if self.num_timesteps % self.decay_interval == 0 and self.num_timesteps > 0:
-            # Calculate new learning rate
-            new_lr = self.model.learning_rate * self.decay_factor
-            self.model.learning_rate = new_lr
-            
-            if self.verbose > 0:
-                print(f"Step {self.num_timesteps}: Learning rate decayed to {new_lr}")
-        
-        return True
-
 def load_best_hyperparameters(csv_path='optimization_results.csv'):
     try:
         df = pd.read_csv(csv_path)
@@ -80,13 +51,21 @@ def PPO_agent( model_name ,env_train,  optimization_results_path='optimization_r
     env_id_train = env_train.spec.id
     print(f"\nTraining on {env_id_train}")
     best_params = load_best_hyperparameters(optimization_results_path)
-                
+    base_lr = best_params.get('learning_rate', 3e-4)
+    total_timesteps = 1_000_000
+
+    # Funzione per decrescita a step del learning rate
+    def lr_schedule(progress_remaining):
+        current_step = int((1 - progress_remaining) * total_timesteps)
+        factor = current_step // 202752  # dimezza ogni 202752 step
+        return base_lr * (0.5 ** factor)
+    
     # Crea il modello con gli iperparametri ottimizzati
     # Create model
     model = PPO(
             policy="MlpPolicy",  # Policy network architecture
             env=env_train,       # Training environment
-            learning_rate=best_params.get('learning_rate', 3e-4),
+            learning_rate=lr_schedule,
             n_steps=int(best_params.get('n_steps', 2048)),
             batch_size=int(best_params.get('batch_size', 64)),
             n_epochs=int(best_params.get('n_epochs', 10)),
@@ -98,19 +77,9 @@ def PPO_agent( model_name ,env_train,  optimization_results_path='optimization_r
             tensorboard_log=f"./{model_name}_tensorboard/",
             verbose=1
         )
-    
-    # Create learning rate decay callback
-    lr_decay_callback = LearningRateDecayCallback(
-        decay_factor=0.5,      # Reduce LR by half
-        decay_interval=200000, # Every 200k steps
-        verbose=1
-    )
-    
-    # Train with learning rate decay callback
-    model.learn(total_timesteps=1_000_000, callback=lr_decay_callback)
-    model.save(os.path.join(LOG_DIR, model_name))
 
-    # Evaluate
+    model.learn(total_timesteps=1_000_000)
+    model.save(os.path.join(LOG_DIR, model_name))
 
 
 def main():
