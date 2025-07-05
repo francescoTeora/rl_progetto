@@ -129,30 +129,38 @@ class Agent(object):
         # TASK 3:
         #   - compute boostrapped discounted return estimates
 
+            # TASK 3: CORREZIONE - calcolo corretto dei bootstrapped returns
+        #
+            # Ottieni i valori degli stati correnti dal critic
             _, state_values = self.policy(states)
             state_values = state_values.squeeze(-1)
 
-            # calcolo multi‐step bootstrapped returns:
+            # Calcolo corretto dei bootstrapped returns
             with torch.no_grad():
-                _, last_value     = self.policy(next_states[-1])
-                bootstrap         = last_value.squeeze(-1) * (1 - done[-1])
-                all_rewards       = torch.cat([rewards, bootstrap.unsqueeze(0)], dim=0)
-                returns           = discount_rewards(all_rewards, self.gamma)[:-1]
+                # Ottieni i valori degli stati successivi per il bootstrapping
+                _, next_state_values = self.policy(next_states)
+                next_state_values = next_state_values.squeeze(-1)
+                
+                # Calcola i target per ogni timestep usando la formula del TD:
+                # target_t = reward_t + gamma * V(s_{t+1}) * (1 - done_t)
+                # Il termine (1 - done_t) azzera il valore futuro se l'episodio è terminato
+                returns = rewards + self.gamma * next_state_values * (1 - done)
 
+            # Calcola gli advantage come differenza tra returns e valori stimati
             advantages = returns - state_values
             advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
+            # Loss dell'actor: gradient policy theorem con baseline (critic)
             actor_loss = -(action_log_probs * advantages.detach()).sum()
+            # Loss del critic: MSE tra valori predetti e target
             critic_loss = F.mse_loss(state_values, returns)
+
+            # Loss totale
             loss = actor_loss + critic_loss
-        self.optimizer.zero_grad()
+
+        # self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
         torch.cuda.empty_cache()
-
-        #
-
-
-
         return       
 
     def get_action(self, state, evaluation = False):
