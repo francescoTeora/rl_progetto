@@ -124,36 +124,26 @@ class Agent(object):
             #self.optimizer.step()
         #
 
-
         else:
         #
         # TASK 3:
         #   - compute boostrapped discounted return estimates
 
-            _, state_values = self.policy.forward(states)
+            _, state_values = self.policy(states)
             state_values = state_values.squeeze(-1)
 
-            returns = torch.zeros_like(rewards)
-            for i in range(len(rewards)):
-                if done[i]:
-                    returns[i] = rewards[i]
-                else:
-                    _, next_value = self.policy(next_states[i])
-                    returns[i] = rewards[i] + self.gamma * next_value.detach()
-
-        #   - compute advantage terms
+            # calcolo multi‐step bootstrapped returns:
+            with torch.no_grad():
+                _, last_value     = self.policy(next_states[-1])
+                bootstrap         = last_value.squeeze(-1) * (1 - done[-1])
+                all_rewards       = torch.cat([rewards, bootstrap.unsqueeze(0)], dim=0)
+                returns           = discount_rewards(all_rewards, self.gamma)[:-1]
 
             advantages = returns - state_values
             advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
-
-        #   - compute actor loss and critic loss
-
             actor_loss = -(action_log_probs * advantages.detach()).sum()
             critic_loss = F.mse_loss(state_values, returns)
             loss = actor_loss + critic_loss
-
-        #   - compute gradients and step the optimizer
-
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
@@ -165,8 +155,7 @@ class Agent(object):
 
         return       
 
-
-    def get_action(self, state, evaluation=False):
+    def get_action(self, state, evaluation = False):
         """ state -> action (3-d), action_log_densities """
         x = torch.from_numpy(state).float().to(self.train_device)
 
@@ -175,7 +164,7 @@ class Agent(object):
         if evaluation:  # Return mean
             return normal_dist.mean, None
 
-        else:   # Sample from the distribution
+        else:   # Sample from the normal distribution
             action = normal_dist.sample()
 
             # Compute Log probability of the action [ log(p(a[0] AND a[1] AND a[2])) = log(p(a[0])*p(a[1])*p(a[2])) = log(p(a[0])) + log(p(a[1])) + log(p(a[2])) ]
