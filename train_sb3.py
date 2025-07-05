@@ -10,9 +10,48 @@ import pandas as pd
 from env.custom_hopper import *
 from stable_baselines3 import PPO
 from stable_baselines3.common.evaluation import evaluate_policy
+from stable_baselines3.common.callbacks import BaseCallback
+import torch
+import random
+# Fix seed for reproducibility
+seed = 2025
+np.random.seed(seed)
+random.seed(seed)
+torch.manual_seed(seed)
+torch.cuda.manual_seed(seed)
 
 LOG_DIR = "./models"
 os.makedirs(LOG_DIR, exist_ok=True)
+
+class LearningRateDecayCallback(BaseCallback):
+    """
+    Custom callback for learning rate decay.
+    Reduces learning rate by factor of 0.5 every 200k steps.
+    """
+    def __init__(self, decay_factor=0.5, decay_interval=200000, verbose=0):
+        super().__init__(verbose)
+        self.decay_factor = decay_factor
+        self.decay_interval = decay_interval
+        self.initial_lr = None
+        
+    def _on_training_start(self) -> None:
+        # Store the initial learning rate
+        self.initial_lr = self.model.learning_rate
+        if self.verbose > 0:
+            print(f"Initial learning rate: {self.initial_lr}")
+    
+    def _on_step(self) -> bool:
+        # Check if we should decay the learning rate
+        if self.num_timesteps % self.decay_interval == 0 and self.num_timesteps > 0:
+            # Calculate new learning rate
+            new_lr = self.model.learning_rate * self.decay_factor
+            self.model.learning_rate = new_lr
+            
+            if self.verbose > 0:
+                print(f"Step {self.num_timesteps}: Learning rate decayed to {new_lr}")
+        
+        return True
+
 def load_best_hyperparameters(csv_path='optimization_results.csv'):
     try:
         df = pd.read_csv(csv_path)
@@ -25,21 +64,21 @@ def load_best_hyperparameters(csv_path='optimization_results.csv'):
     best_params = {}
     param_columns = [col for col in df.columns if col.startswith('params_')]
     for col in param_columns:
-        # Rimuovi il prefisso 'params_' per ottenere il nome pulito del parametro
         param_name = col.replace('params_', '')
         param_value = best_trial[col]
+        if isinstance(param_value, float):
+            param_value = round(param_value, 5)
         best_params[param_name] = param_value
     return best_params
+
     
     
-def PPO_agent( model_name ,env_train, 
-              env_test, optimization_results_path='optimization_results.csv'):
+def PPO_agent( model_name ,env_train,  optimization_results_path='optimization_results.csv'):
    
    #optimization_results_path to use the best hyperparameters found
 
     env_id_train = env_train.spec.id
-    env_id_test = env_test.spec.id
-    print(f"\nTraining on {env_id_train}, testing on {env_id_test}")
+    print(f"\nTraining on {env_id_train}")
     best_params = load_best_hyperparameters(optimization_results_path)
                 
     # Crea il modello con gli iperparametri ottimizzati
@@ -54,21 +93,24 @@ def PPO_agent( model_name ,env_train,
             gamma=best_params.get('gamma', 0.99),
             gae_lambda=best_params.get('gae_lambda', 0.95),
             clip_range=best_params.get('clip_range', 0.2),
-            ent_coef=best_params.get('ent_coef', 0.0),
+            ent_coef=best_params.get('ent_coef', 0.1),
             normalize_advantage=True,
             tensorboard_log=f"./{model_name}_tensorboard/",
             verbose=1
         )
-    # Train
-    model.learn(total_timesteps=100_000)
+    
+    # Create learning rate decay callback
+    lr_decay_callback = LearningRateDecayCallback(
+        decay_factor=0.5,      # Reduce LR by half
+        decay_interval=200000, # Every 200k steps
+        verbose=1
+    )
+    
+    # Train with learning rate decay callback
+    model.learn(total_timesteps=1_000_000, callback=lr_decay_callback)
     model.save(os.path.join(LOG_DIR, model_name))
 
     # Evaluate
-    mean_reward, std_reward = evaluate_policy(
-        model, env_test, n_eval_episodes=50, deterministic=True, render= True)
-    
-    print(f"Evaluation on {env_id_test}: Mean reward = {mean_reward:.2f} +/- {std_reward:.2f}")
-    return mean_reward, std_reward
 
 
 def main():
@@ -79,32 +121,24 @@ def main():
     print('Action space:', source_env.action_space)
     print('Dynamics parameters:', source_env.get_parameters())
 
-    # TRAIN Agent 1: source domain
-    print("\n=== Training Agent on SOURCE domain ===")
-    PPO_agent("ppo_source",source_env, source_env, optimization_results_path='optimization_results.csv')
-    # TEST Agent 1: source -> source
-    print("\n=== Testing SOURCE-trained agent on SOURCE domain ===")
-    source_model = PPO.load(os.path.join(LOG_DIR, "ppo_source"))
-    m1, s1 = evaluate_policy(source_model, target_env, n_eval_episodes=50, deterministic=True)
+    # Choose which environment to train on (modify this line to switch domains)
+    # Set train_on_source = True for source domain, False for target domain
+    train_on_source = True
     
-    # TEST Agent 1: source -> target (lower bound)
-    print("\n=== Testing SOURCE-trained agent on TARGET domain ===")
-    m2, s2 = evaluate_policy(source_model, target_env, n_eval_episodes=50, deterministic=True)
-    
-    # TRAIN Agent 2: target domain  
-    print("\n=== Training Agent on TARGET domain ===")
-    PPO_agent("ppo_target", target_env, target_env, optimization_results_path='optimization_results.csv')
-     # TEST Agent 2: target -> target (upper bound)
-    print("\n=== Testing TARGET-trained agent on TARGET domain ===")
-    target_model = PPO.load(os.path.join(LOG_DIR, "ppo_target"))
-    m3, s3 = evaluate_policy(target_model, target_env, n_eval_episodes=50, deterministic=True)
-    print("\n" + "="*50)
-    print("FINAL RESULTS SUMMARY")
-    print("="*50)
-    print(f"source → source: {m1:.2f} ± {s1:.2f}")
-    print(f"source → target: {m2:.2f} ± {s2:.2f} (LOWER BOUND)")
-    print(f"target → target: {m3:.2f} ± {s3:.2f} (UPPER BOUND)")
-    print("="*50)
+    if train_on_source:
+        print("\n=== Training Agent on SOURCE domain ===")
+        PPO_agent("ppo_source", source_env, optimization_results_path='optimization_results.csv')
+        print("\n=== Testing SOURCE-trained agent on SOURCE domain ===")
+        model = PPO.load(os.path.join(LOG_DIR, "ppo_source"))
+        mean_reward, std_reward = evaluate_policy(model, source_env, n_eval_episodes=50, deterministic=True)
+        print(f"source → source: {mean_reward:.2f} ± {std_reward:.2f}")
+    else:
+        print("\n=== Training Agent on TARGET domain ===")
+        PPO_agent("ppo_target", target_env, optimization_results_path='optimization_results.csv')
+        print("\n=== Testing TARGET-trained agent on TARGET domain ===")
+        model = PPO.load(os.path.join(LOG_DIR, "ppo_target"))
+        mean_reward, std_reward = evaluate_policy(model, target_env, n_eval_episodes=50, deterministic=True)
+        print(f"target → target: {mean_reward:.2f} ± {std_reward:.2f}")
 
 if __name__ == '__main__':
     main()
