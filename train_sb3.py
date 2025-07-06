@@ -52,20 +52,15 @@ def PPO_agent( model_name ,env_train,  optimization_results_path='optimization_r
     print(f"\nTraining on {env_id_train}")
     best_params = load_best_hyperparameters(optimization_results_path)
     base_lr = best_params.get('learning_rate', 3e-4)
-    total_timesteps = 1_000_000
-
     # Funzione per decrescita a step del learning rate
-    def lr_schedule(progress_remaining):
-        current_step = int((1 - progress_remaining) * total_timesteps)
-        factor = current_step // 202752  # dimezza ogni 202752 step
-        return base_lr * (0.5 ** factor)
-    
+    def linear_schedule(initial_value):
+        return lambda progress_remaining: progress_remaining * initial_value
     # Crea il modello con gli iperparametri ottimizzati
     # Create model
     model = PPO(
             policy="MlpPolicy",  # Policy network architecture
             env=env_train,       # Training environment
-            learning_rate=lr_schedule,
+            learning_rate=linear_schedule(base_lr),
             n_steps=int(best_params.get('n_steps', 2048)),
             batch_size=int(best_params.get('batch_size', 64)),
             n_epochs=int(best_params.get('n_epochs', 10)),
