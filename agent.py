@@ -119,9 +119,9 @@ class Agent(object):
             policy_loss = -action_log_probs * advantages
             loss = policy_loss.sum()
         #   - compute gradients and step the optimizer
-            #self.optimizer.zero_grad()
-            #loss.backward()
-            #self.optimizer.step()
+            self.optimizer.zero_grad()
+            loss.backward()
+            self.optimizer.step()
         #
 
         else:
@@ -151,15 +151,23 @@ class Agent(object):
             advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
             # Loss dell'actor: gradient policy theorem con baseline (critic)
             actor_loss = -(action_log_probs * advantages.detach()).sum()
+            self.optimizer.zero_grad()
+            actor_loss.backward()
+            self.optimizer.step()
+
+            
             # Loss del critic: MSE tra valori predetti e target
-            critic_loss = F.mse_loss(state_values, returns)
+            
+            critic_loss = F.mse_loss(state_values, returns)  
+            self.policy_optimizer.zero_grad()
+            critic_loss.backward()
+            self.policy_optimizer.step()
 
+            #TOGLIERE
             # Loss totale
-            loss = actor_loss + critic_loss
+            #loss = actor_loss + critic_loss
 
-        # self.optimizer.zero_grad()
-        loss.backward()
-        self.optimizer.step()
+        
         torch.cuda.empty_cache()
         return       
 
