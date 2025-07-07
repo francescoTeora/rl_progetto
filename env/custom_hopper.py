@@ -12,31 +12,28 @@ from .mujoco_env import MujocoEnv
 
 
 class CustomHopper(MujocoEnv, utils.EzPickle):
-    def __init__(self, domain=None):
+    def __init__(self, domain, enable_udr=False):
         MujocoEnv.__init__(self, 4)
         utils.EzPickle.__init__(self)
-        self.domain= domain
+        self.domain = domain
+        self.enable_udr = enable_udr  # Flag per attivare/disattivare UDR
         self.original_masses = np.copy(self.sim.model.body_mass[1:])    # Default link masses
 
         if domain == 'source':  # Source environment has an imprecise torso mass (-30% shift)
             self.sim.model.body_mass[1] *= 0.7
 
     def set_random_parameters(self):
-        """Set random masses"""
-        self.set_parameters(self.sample_parameters())
-
+        """Set random masses using domain randomization"""
+        new_params = self.sample_parameters()
+        self.set_parameters(new_params)
 
     def sample_parameters(self):
         """Sample masses according to a domain randomization distribution"""
-        #
-        # TASK 6: implement domain randomization. Remember to sample new dynamics parameter
-        # at the start of each training episode.
-        
         # Original masses: thigh, leg, foot
         # Assume some default ranges (tune them manually later)
-        thigh_mass_range = (0.5, 1.5)*self.original_masses[2]
-        leg_mass_range = (0.5, 1.5)*self.original_masses[3]
-        foot_mass_range = (0.5, 1.5)*self.original_masses[4]
+        thigh_mass_range = (0.5 * self.original_masses[0], 1.5 * self.original_masses[0])
+        leg_mass_range = (0.5 * self.original_masses[2], 1.5 * self.original_masses[2])
+        foot_mass_range = (0.5 * self.original_masses[3], 1.5 * self.original_masses[3])
 
         thigh_mass = np.random.uniform(*thigh_mass_range)
         leg_mass = np.random.uniform(*leg_mass_range)
@@ -48,17 +45,14 @@ class CustomHopper(MujocoEnv, utils.EzPickle):
         # Return all masses in order: torso, thigh, leg, foot
         return np.array([torso_mass, thigh_mass, leg_mass, foot_mass])
 
-        
-
     def get_parameters(self):
         """Get value of mass for each link"""
-        masses = np.array( self.sim.model.body_mass[1:] )
+        masses = np.array(self.sim.model.body_mass[1:])
         return masses
 
-
-    def set_parameters(self):
+    def set_parameters(self, new_params):
         """Set each hopper link's mass to a new value"""
-        self.sim.model.body_mass[1:] = self.sample_parameters(self)
+        self.sim.model.body_mass[1:] = new_params
 
     def step(self, a):
         """Step the simulation to the next timestep
@@ -82,7 +76,6 @@ class CustomHopper(MujocoEnv, utils.EzPickle):
 
         return ob, reward, done, {}
 
-
     def _get_obs(self):
         """Get current state"""
         return np.concatenate([
@@ -90,23 +83,24 @@ class CustomHopper(MujocoEnv, utils.EzPickle):
             self.sim.data.qvel.flat
         ])
 
-#aggiungere una funzione per resettare il model con udr e tenere questa per resettare il modello per i primi 2 algoritmi
     def reset_model(self):
         """Reset the environment to a random initial state"""
         
-        #self.set_random_parameters() #Applichiamo UDR
+        # Apply UDR only when the flag is enabled
+        if self.enable_udr:
+            self.set_random_parameters()
+             # Apply UDR
+        
         qpos = self.init_qpos + self.np_random.uniform(low=-.005, high=.005, size=self.model.nq)
         qvel = self.init_qvel + self.np_random.uniform(low=-.005, high=.005, size=self.model.nv)
         self.set_state(qpos, qvel)
         return self._get_obs()
-
 
     def viewer_setup(self):
         self.viewer.cam.trackbodyid = 2
         self.viewer.cam.distance = self.model.stat.extent * 0.75
         self.viewer.cam.lookat[2] = 1.15
         self.viewer.cam.elevation = -20
-
 
     def set_mujoco_state(self, state):
         """Set the simulator to a specific state
@@ -124,23 +118,19 @@ class CustomHopper(MujocoEnv, utils.EzPickle):
 
         self.set_sim_state(mjstate)
 
-
     def set_sim_state(self, mjstate):
         """Set internal mujoco state"""
         return self.sim.set_state(mjstate)
-
 
     def get_mujoco_state(self):
         """Returns current mjstate"""
         return self.sim.get_state()
 
 
-
 """
     Registered environments
-
 """
-#qui sono definiti i vari envs che poi si vanno a usare nel training
+# Ambienti originali
 gym.envs.register(
         id="CustomHopper-v0",
         entry_point="%s:CustomHopper" % __name__,
@@ -159,5 +149,13 @@ gym.envs.register(
         entry_point="%s:CustomHopper" % __name__,
         max_episode_steps=500,
         kwargs={"domain": "target"}
+)
+
+# Ambiente con UDR abilitata
+gym.envs.register(
+        id="CustomHopper-source-udr-v0",
+        entry_point="%s:CustomHopper" % __name__,
+        max_episode_steps=500,
+        kwargs={"domain": "source", "enable_udr": True}
 )
 
