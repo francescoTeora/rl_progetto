@@ -136,15 +136,14 @@ class Agent(object):
             state_values = state_values.squeeze(-1)
 
             # Calcolo corretto dei bootstrapped returns
-            with torch.no_grad():
-                # Ottieni i valori degli stati successivi per il bootstrapping
-                _, next_state_values = self.policy(next_states)
-                next_state_values = next_state_values.squeeze(-1)
+            # Ottieni i valori degli stati successivi per il bootstrapping
+            _, next_state_values = self.policy(next_states)
+            next_state_values = next_state_values.squeeze(-1)
                 
-                # Calcola i target per ogni timestep usando la formula del TD:
-                # target_t = reward_t + gamma * V(s_{t+1}) * (1 - done_t)
-                # Il termine (1 - done_t) azzera il valore futuro se l'episodio è terminato
-                returns = rewards + self.gamma * next_state_values * (1 - done)
+            # Calcola i target per ogni timestep usando la formula del TD:
+            # target_t = reward_t + gamma * V(s_{t+1}) * (1 - done_t)
+            # Il termine (1 - done_t) azzera il valore futuro se l'episodio è terminato
+            returns = rewards + self.gamma * next_state_values * (1 - done)
 
             # Calcola gli advantage come differenza tra returns e valori stimati
             advantages = returns - state_values
@@ -159,9 +158,9 @@ class Agent(object):
             # Loss del critic: MSE tra valori predetti e target
             
             critic_loss = F.mse_loss(state_values, returns)  
-            self.policy_optimizer.zero_grad()
+            self.optimizer.zero_grad()
             critic_loss.backward()
-            self.policy_optimizer.step()
+            self.optimizer.step()
 
             #TOGLIERE
             # Loss totale
