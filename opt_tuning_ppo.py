@@ -19,12 +19,13 @@ def objective(trial):
     clip_range = trial.suggest_float('clip_range', 0.15, 0.3)
     gae_lambda = trial.suggest_float('gae_lambda', 0.9, 0.99)
     source_env = gym.make('CustomHopper-source-v0')
+    source_udr_env = gym.make('CustomHopper-source-udr-v0')
     #qui si crea un modello identico al training che viene addestrato con combinazioni diverse di parametri ogni volta
     #quindi si usa normalize advantage e TUTTI I PARAMETRI DEL TRAIN (con quelli non da ottimizzare fissi, per avere risultati comparabili 
     #e utili per training vero e proprio)
     model = PPO(
         "MlpPolicy",
-        source_env,
+        source_udr_env,
         # Iperparametri di apprendimento
         learning_rate=learning_rate,
         gamma=gamma,
@@ -49,7 +50,7 @@ def objective(trial):
         model, target_env, n_eval_episodes=50, deterministic=True
     )
 
-    source_env.close()
+    source_udr_env.close()
     target_env.close()
     del model
     #metrica per tenere conto del fatto che la varianza possa incidere e il mean reward da solo non è sufficiente ma
@@ -85,7 +86,7 @@ def run_optimization():
         print(f"  {key}: {value}")
     
     df = study.trials_dataframe()
-    df.to_csv('optimization_results.csv')
+    df.to_csv('optimization_results_udr.csv')
     
     return study
 run_optimization()
