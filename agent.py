@@ -89,6 +89,12 @@ class Agent(object):
         self.action_log_probs = []
         self.rewards = []
         self.done = []
+        self.actor_optimizer = torch.optim.Adam(
+            [p for n, p in self.policy.named_parameters() if 'fc1_actor' in n or 'fc2_actor' in n or 'fc3_actor' in n or 'sigma' in n],
+            lr=1e-3)
+        self.critic_optimizer = torch.optim.Adam(
+            [p for n, p in self.policy.named_parameters() if 'fc1_critic' in n or 'fc2_critic' in n or 'fc3_critic' in n],
+            lr=1e-3)
 
 
     def update_policy(self):
@@ -135,14 +141,8 @@ class Agent(object):
             _, state_values = self.policy(states)
             state_values = state_values.squeeze(-1)
 
-            # Calcolo corretto dei bootstrapped returns
-            # Ottieni i valori degli stati successivi per il bootstrapping
             _, next_state_values = self.policy(next_states)
             next_state_values = next_state_values.squeeze(-1)
-                
-            # Calcola i target per ogni timestep usando la formula del TD:
-            # target_t = reward_t + gamma * V(s_{t+1}) * (1 - done_t)
-            # Il termine (1 - done_t) azzera il valore futuro se l'episodio è terminato
             returns = rewards + self.gamma * next_state_values * (1 - done)
 
             # Calcola gli advantage come differenza tra returns e valori stimati
@@ -150,24 +150,22 @@ class Agent(object):
             advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
             # Loss dell'actor: gradient policy theorem con baseline (critic)
             actor_loss = -(action_log_probs * advantages.detach()).sum()
-            self.optimizer.zero_grad()
+            critic_loss = F.mse_loss(state_values, returns)
+            self.actor_optimizer.zero_grad()
             actor_loss.backward()
-            self.optimizer.step()
+            self.actor_optimizer.step()
 
-            
-            # Loss del critic: MSE tra valori predetti e target
-            
-            critic_loss = F.mse_loss(state_values, returns)  
-            self.optimizer.zero_grad()
+            # Update critic
+            self.critic_optimizer.zero_grad()
             critic_loss.backward()
-            self.optimizer.step()
+            self.critic_optimizer.step()
 
-            #TOGLIERE
+            # Loss del critic: MSE tra valori predetti e target
             # Loss totale
-            #loss = actor_loss + critic_loss
+            
 
-        
-        torch.cuda.empty_cache()
+        # self.optimizer.zero_grad()
+      
         return       
 
     def get_action(self, state, evaluation = False):
@@ -194,4 +192,3 @@ class Agent(object):
         self.action_log_probs.append(action_log_prob)
         self.rewards.append(torch.Tensor([reward]))
         self.done.append(done)
-
