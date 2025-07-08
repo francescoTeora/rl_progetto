@@ -8,6 +8,7 @@ from env.custom_hopper import *
 
 LOG_DIR = "./models"
 os.makedirs(LOG_DIR, exist_ok=True)
+model_name = 'ExtensionCDR_PPO'
 
 class CurriculumDomainRandomizationAdaptive(gym.Wrapper):
     """
@@ -64,7 +65,7 @@ class CurriculumDomainRandomizationAdaptive(gym.Wrapper):
         recent_rewards = self.episode_rewards[-100:]
         recent_avg = np.mean(recent_rewards)
         
-        # Se abbiamo almeno 1000 episodi, confronta con i 500 precedenti
+        # Se abbiamo almeno 200 episodi, confronta con i 200 precedenti
         if len(self.episode_rewards) >= 200:
             previous_rewards = self.episode_rewards[-200:-100]
             previous_avg = np.mean(previous_rewards)
@@ -75,12 +76,12 @@ class CurriculumDomainRandomizationAdaptive(gym.Wrapper):
                 self.current_range = min(self.max_range, self.current_range + 0.02)
                 self.episode_rewards=[]
                 
-                print(f"🎯 Difficulty UP! Range: {old_range:.3f} → {self.current_range:.3f}")
+                print(f" Difficulty UP! Range: {old_range:.3f} → {self.current_range:.3f}")
                 print(f"   Performance: {previous_avg:.1f} → {recent_avg:.1f}")
 
 def train_simple_adaptive():
     """Training con CDR adattivo semplice"""
-    print("Training with Simple Adaptive CDR...")
+    print("Training with Adaptive CDR...")
     
     # Ambiente di training
     source_env = gym.make('CustomHopper-source-v0')
@@ -114,10 +115,10 @@ def train_simple_adaptive():
     
     
     best_params = load_best_hyperparameters('optimization_results.csv')
-    base_lr = best_params.get('learning_rate', 3e-4)
+    # base_lr = best_params.get('learning_rate', 3e-4)
     # Funzione per decrescita a step del learning rate
-    def linear_schedule(initial_value):
-        return lambda progress_remaining: progress_remaining * initial_value
+    #def linear_schedule(initial_value):
+        #return lambda progress_remaining: progress_remaining * initial_value
     # Crea il modello con gli iperparametri ottimizzati
     # Create model
     model = PPO(
@@ -145,11 +146,7 @@ def train_simple_adaptive():
     
     print(f"\nResults: {mean_reward:.2f} ± {std_reward:.2f}")
     
-    # Statistiche finali
-    wrapper = train_env.envs[0]
-    print(f"Final range: {wrapper.current_range:.3f}")
-    print(f"Episodes: {wrapper.reset_count}")
-    
+   
     train_env.close()
     target_env.close()
     
