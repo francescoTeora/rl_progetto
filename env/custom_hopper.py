@@ -22,13 +22,14 @@ class CustomHopper(MujocoEnv, utils.EzPickle):
         if domain == 'source':  # Source environment has an imprecise torso mass (-30% shift)
             self.sim.model.body_mass[1] *= 0.7
 
-    def set_random_parameters(self):
+    def set_random_parameters(self, range=0.2):
         """Set random masses using domain randomization"""
-        new_params = self.sample_parameters()
+        new_params = self.sample_parameters(range)
         self.set_parameters(new_params)
+        print(f"[DEBUG] Episodio {getattr(self, 'episode', 0)} - Masse randomizzate: {self.model.body_mass}")
 
 
-    def sample_parameters(self, range):
+    def sample_parameters(self, range=0.2):
         """Sample masses according to a domain randomization distribution"""
         # Original masses: thigh, leg, foot
         # Assume some default ranges (tune them manually later)
@@ -89,7 +90,7 @@ class CustomHopper(MujocoEnv, utils.EzPickle):
         
         # Apply UDR only when the flag is enabled
         if self.enable_udr:
-            self.set_random_parameters()
+            self.set_random_parameters(range=0.1)
              # Apply UDR
         
         qpos = self.init_qpos + self.np_random.uniform(low=-.005, high=.005, size=self.model.nq)
@@ -159,5 +160,13 @@ gym.envs.register(
         max_episode_steps=500,
         kwargs={"domain": "source", "enable_udr": True}
 )
+gym.envs.register(
+        id="CustomHopper-target-udr-v0",
+        entry_point="%s:CustomHopper" % __name__,
+        max_episode_steps=500,
+        kwargs={"domain": "target", "enable_udr": True}
+)
+
+
 
 
