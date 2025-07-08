@@ -27,13 +27,14 @@ class CustomHopper(MujocoEnv, utils.EzPickle):
         new_params = self.sample_parameters()
         self.set_parameters(new_params)
 
-    def sample_parameters(self):
+
+    def sample_parameters(self, range):
         """Sample masses according to a domain randomization distribution"""
         # Original masses: thigh, leg, foot
         # Assume some default ranges (tune them manually later)
-        thigh_mass_range = (0.5 * self.original_masses[0], 1.5 * self.original_masses[0])
-        leg_mass_range = (0.5 * self.original_masses[2], 1.5 * self.original_masses[2])
-        foot_mass_range = (0.5 * self.original_masses[3], 1.5 * self.original_masses[3])
+        thigh_mass_range = ((1-range) * self.original_masses[0], (1+range) * self.original_masses[0])
+        leg_mass_range = ((1-range) * self.original_masses[2], (1+range)* self.original_masses[2])
+        foot_mass_range = ((1-range)* self.original_masses[3], (1+range) * self.original_masses[3])
 
         thigh_mass = np.random.uniform(*thigh_mass_range)
         leg_mass = np.random.uniform(*leg_mass_range)
@@ -158,4 +159,5 @@ gym.envs.register(
         max_episode_steps=500,
         kwargs={"domain": "source", "enable_udr": True}
 )
+
 
