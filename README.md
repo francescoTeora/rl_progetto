@@ -12,7 +12,7 @@ By running the train files, various tests will be automatically executed to eval
 ## Requirements
 
 ## Authors
-Federico Filippi \\
-Giorgia Malfeo\\
-Gaia Saroglia\\
+Federico Filippi \n
+Giorgia Malfeo\n
+Gaia Saroglia\n
 Francesco Teora
