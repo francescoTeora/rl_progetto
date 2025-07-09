@@ -9,7 +9,6 @@ The training code for reinforcement learning algorithms is available in the vari
 ### Testing
 
 By running the train files, various tests will be automatically executed to evaluate the performance of the implemented algorithms. Nevertheless, some specific tests can be done by adding a simple script, because models are available
-## Requirements
 
 ## Authors
 Federico Filippi  
